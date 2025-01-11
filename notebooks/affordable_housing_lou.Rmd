@@ -1,0 +1,102 @@
+---
+title: "affordable_housing_Lou"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(tidyverse)
+library(sf)
+
+LIHTC <- read_csv("NSS_Projects/affordable-housing-Jorgen85Lex/Data/Affordable_Housing/LIHTC.csv")
+assessments <- read_csv("NSS_Projects/affordable-housing-Jorgen85Lex/Data/Affordable_Housing/assessments.csv")
+barnes <- read_csv("NSS_Projects/affordable-housing-Jorgen85Lex/Data/Affordable_Housing/barnes.csv")
+filtered_sales <- read_csv("NSS_Projects/affordable-housing-Jorgen85Lex/Data/Affordable_Housing/filtered_sales.csv")
+full_sales<- read_csv("NSS_Projects/affordable-housing-Jorgen85Lex/Data/Affordable_Housing/full_sales.csv")
+property_details<- read_csv("NSS_Projects/affordable-housing-Jorgen85Lex/Data/Affordable_Housing/property_details.csv")
+```
+
+Look at the Park at Richards Road Apartments, which are contained in LIHTC.csv and have a HUD ID of TNA20130015. These were allocated in 2012 and placed in service in 2013.
+
+```{r}
+Richards_Rd <- LIHTC |> 
+  filter(HUD_ID == "TNA20130015")
+
+Richards_Rd
+```
+
+Find all homes that are less than 2000 feet from this development (our "treatment" group) and all homes that are between 2000 and 3000 feet from this development (our "control" group). For these homes, find all sales that took place between 5 and 1 year before this development was allocated and all sales for 1 to 5 years after it was placed in service. You can use these are the "pre" and "post" sales.
+
+```{r}
+property_details
+```
+
+
+```{r}
+property_details<- property_details |> 
+  drop_na(centroid)
+
+property_details
+```
+```{r}
+property_details <- property_details %>%
+  mutate(
+    LATITUDE = as.numeric(sub(".*?,(.*)\\)", "\\1", centroid)),
+    LONGITUDE = as.numeric(sub("\\((.*?),.*", "\\1", centroid))
+  )
+
+property_details
+```
+
+
+```{r}
+property_details <- property_details |> 
+  st_as_sf(coords = c('LONGITUDE', 'LATITUDE'), crs = 4326)
+
+property_details <- st_transform(property_details, crs = 4326)
+```
+
+
+```{r}
+control_richards_coords <- c(LONGITUDE = -86.67468, LATITUDE = 36.06866)
+
+richards_rd <- st_sfc(st_point(control_richards_coords), crs = st_crs(property_details))
+```
+
+```{r}
+library(units)
+distances <- st_distance(property_details, richards_rd)
+radius_2000 <- set_units(2000, "feet")
+distances<- set_units(distances, "feet")
+
+homes_within_2000 <- property_details[distances <= radius_2000, ]
+homes_within_2000
+```
+
+
+```{r}
+radius_3000 <- set_units(3000, "feet")
+
+homes_within_2000_and_3000 <- property_details[distances > radius_2000 & distances <= radius_3000, ]
+
+homes_within_2000_and_3000
+```
+
+
+```{r}
+property_details |> 
+  ggplot() +
+  geom_sf() +
+  geom_sf(data = property_details, size = 0.1)
+```
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
